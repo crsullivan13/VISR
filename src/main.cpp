@@ -22,19 +22,19 @@ void command(int cmd, T& input) {
   switch (cmd) {
     case 1:
       Serial.println("[CMD] F5");
-      input.pressRaw(KEY_F5);
+      input.press(KEY_F5);
       break;
     case 2:
       Serial.println("[CMD] Right Arrow");
-      keyboard.pressRaw(KEY_RIGHT_ARROW);
+      keyboard.press(KEY_RIGHT_ARROW);
       break;
     case 3:
       Serial.println("[CMD] Left Arrow");
-      keyboard.pressRaw(KEY_LEFT_ARROW);
+      keyboard.press(KEY_LEFT_ARROW);
       break;
     case 4:
       Serial.println("[CMD] Esc");
-      keyboard.pressRaw(KEY_ESC);
+      keyboard.press(KEY_ESC);
       break;
      default:
       Serial.println("[CMD] Err invalid option.");
