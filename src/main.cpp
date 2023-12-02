@@ -12,7 +12,7 @@ void setup() {
   Serial.begin(115200);
   Serial.println("ESP32 Test");
 
-  Serial.println("Enable Bluetooth?");
+  Serial.println("Enable Bluetooth? [true/false]");
   bleEnabled = Serial.read();
   Serial.println("You set bluetooth to:" + bleEnabled);
 }
@@ -37,7 +37,7 @@ void command(int cmd, T& input) {
       keyboard.pressRaw(KEY_ESC);
       break;
      default:
-      Serial.println("[USB] Err invalid option.");
+      Serial.println("[CMD] Err invalid option.");
       break;
   }
 }
