@@ -1,57 +1,51 @@
 #include <Arduino.h>
+#include <USBHIDKeyboard.h>
 #include <BleKeyboard.h>
+#include <string>
+uint8_t count = 0;
+bool bleEnabled;
 
-//USE_NIMBLE defined in BleKeyboard.h -> drasticly decreases size of BLE libraries
-//Heap size is 363700, free heap is 284764, sketch size is 499440 -> nimble on
-//Heap size is 343588, free heap is 245716, sketch size is 883296 -> nimble off
-
-BleKeyboard bleKeyboard;
+USBHIDKeyboard usb;
+BleKeyboard ble;
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("Starting BLE work!");
-  bleKeyboard.begin();
+  Serial.println("ESP32 Test");
+
+  Serial.println("Enable Bluetooth?");
+  bleEnabled = Serial.read();
+  Serial.println("You set bluetooth to:" + bleEnabled);
 }
 
-uint8_t count = 0;
+template <typename T>
+void command(int cmd, T& input) {
+  switch (cmd) {
+    case 1:
+      Serial.println("[CMD] F5");
+      input.pressRaw(KEY_F5);
+      break;
+    case 2:
+      Serial.println("[CMD] Right Arrow");
+      keyboard.pressRaw(KEY_RIGHT_ARROW);
+      break;
+    case 3:
+      Serial.println("[CMD] Left Arrow");
+      keyboard.pressRaw(KEY_LEFT_ARROW);
+      break;
+    case 4:
+      Serial.println("[CMD] Esc");
+      keyboard.pressRaw(KEY_ESC);
+      break;
+     default:
+      Serial.println("[USB] Err invalid option.");
+      break;
+  }
+}
 
 void loop() {
-  // uint32_t heapSize = ESP.getHeapSize();
-  // uint32_t freeHeap = ESP.getFreeHeap();
-  // uint32_t sketchSize = ESP.getSketchSize();
-
-  // Serial.printf("Heap size is %d, free heap is %d, sketch size is %d\n", heapSize, freeHeap, sketchSize);
-
-  if ( bleKeyboard.isConnected() ) {
-    count++;
-
-    if ( count == 1 ) {
-      Serial.println("Sending F5");
-      bleKeyboard.write(KEY_F5);
-
-      delay(1000);
-    }
-
-    Serial.println("Sending Right Arrow key...");
-    bleKeyboard.write(KEY_RIGHT_ARROW);
-
-    delay(1000);
-
-    Serial.println("Sending Left Arrow key...");
-    bleKeyboard.write(KEY_LEFT_ARROW);
-
-    delay(1000);
-
-    if ( count == 8 ) {
-      Serial.println("Sending esc key");
-
-      count = 0;
-      bleKeyboard.write(KEY_ESC);
-
-      delay(1000);
-    } 
-  }
-
-  Serial.println("Waiting 5 seconds...");
+  if (count >5) {count = 1;}
+  bleEnabled ? command(count, ble) : command(count, usb);
+  count++;
+  Serial.println("Done.");
   delay(5000);
 }
