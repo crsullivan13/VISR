@@ -1,2 +1,0 @@
-.pio/build/seeed_xiao_esp32s3/lib310/NimBLE-Arduino/nimble/nimble/controller/src/ble_ll_hci.c.o: \
- .pio/libdeps/seeed_xiao_esp32s3/NimBLE-Arduino/src/nimble/nimble/controller/src/ble_ll_hci.c

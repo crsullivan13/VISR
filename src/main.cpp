@@ -1,7 +1,20 @@
 #include <Arduino.h>
-#include <USBHIDKeyboard.h>
 #include <BleKeyboard.h>
+#include <I2S.h>
 #include <string>
+#include <USBHIDKeyboard.h>
+#include <VISR_Presentation_Controls_inferencing.h>
+
+#define SAMPLE_RATE 16000U
+#define SAMPLE_BITS 16
+#define USER_LED 21
+
+typedef struct {
+  uint32_t n_samples;
+  uint32_t buf_count;
+  uint16_t* buffer;
+  uint8_t buf_ready;
+} inference_t;
 
 uint8_t count = 0;
 bool bleEnabled = false;
@@ -12,37 +25,24 @@ unsigned long prevTimeHolder = 0;
 USBHIDKeyboard usb;
 BleKeyboard ble;
 
-void setup() {
-  Serial.begin(115200);
-}
+unsigned long TimeSince(unsigned long start);
 
 template <typename T>
-void command(int cmd, T& input) {
-  switch (cmd) {
-    case 1:
-      Serial.println("[CMD] F5");
-      input.write(KEY_F5);
-      break;
-    case 2:
-      Serial.println("[CMD] Right Arrow");
-      input.write(KEY_RIGHT_ARROW);
-      break;
-    case 3:
-      Serial.println("[CMD] Left Arrow");
-      input.write(KEY_LEFT_ARROW);
-      break;
-    case 4:
-      Serial.println("[CMD] Esc");
-      input.write(KEY_ESC);
-      break;
-     default:
-      Serial.println("[CMD] Err invalid option.");
-      break;
-  }
-}
+void command(int cmd, T& input);
 
-unsigned long TimeSince(unsigned long start) {
-  return millis() - start;
+void setup() {
+  Serial.begin(115200);
+  while(!Serial);
+
+  pinMode(USER_LED, OUTPUT);
+  digitalWrite(USER_LED, HIGH);
+
+  I2S.setAllPins(-1, 42, 41, -1, -1);
+  if ( !I2S.begin(PDM_MONO_MODE, SAMPLE_RATE, SAMPLE_BITS) )
+  {
+    Serial.println("I2S failed to init!");
+    while(1);
+  }
 }
 
 void loop() {
@@ -106,4 +106,33 @@ void loop() {
 
   Serial.println("Done.");
   delay(5000);
+}
+
+unsigned long TimeSince(unsigned long start) {
+  return millis() - start;
+}
+
+template <typename T>
+void command(int cmd, T& input) {
+  switch (cmd) {
+    case 1:
+      Serial.println("[CMD] F5");
+      input.write(KEY_F5);
+      break;
+    case 2:
+      Serial.println("[CMD] Right Arrow");
+      input.write(KEY_RIGHT_ARROW);
+      break;
+    case 3:
+      Serial.println("[CMD] Left Arrow");
+      input.write(KEY_LEFT_ARROW);
+      break;
+    case 4:
+      Serial.println("[CMD] Esc");
+      input.write(KEY_ESC);
+      break;
+     default:
+      Serial.println("[CMD] Err invalid option.");
+      break;
+  }
 }

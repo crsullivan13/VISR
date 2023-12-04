@@ -26,7 +26,7 @@
 
 /* HID Class */
 #define HID_CLASS           (3)
-#define HID_SUBCLASS_NONE   (0)
+//#define HID_SUBCLASS_NONE   (0)
 #define HID_PROTOCOL_NONE   (0)
 
 /* Descriptors */
