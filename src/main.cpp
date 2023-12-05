@@ -50,6 +50,8 @@ unsigned long TimeSince(unsigned long start);
 template <typename T>
 void command(inferenceLabel cmd, T& input);
 
+inferenceLabel GetLabel();
+
 void SampleCallback(uint32_t nBytes);
 void RecordSample(void* arg);
 bool BeginSampling(uint32_t nSamples);
@@ -77,106 +79,48 @@ void setup() {
 }
 
 void loop() {
-  while ( !inference.buf_ready ) {
-    delay(10);
-  }
-  inference.buf_ready = false;
+  if ( !interfaceChosen ) {
+    if ( TimeSince(prevTimeHolder) >= 1000 ) {
+      Serial.println("Enable Bluetooth? [y/n]");
+      prevTimeHolder = millis();
+    }
 
-  signal_t signal;
-  signal.total_length = EI_CLASSIFIER_RAW_SAMPLE_COUNT;
-  signal.get_data = &GetAudioData;
-  ei_impulse_result_t result = {0};
+    //Only read from serial if there is actually something in the buffer to read
+    if ( Serial.available() > 0 ) {
+      uint8_t choice = Serial.read(); //This overload of serial read gets a single byte
+      bleEnabled = choice == 'y' ? true : false;
 
-  EI_IMPULSE_ERROR classifierError = run_classifier(&signal, &result, false);
-  if ( classifierError != EI_IMPULSE_OK ) {
-    ei_printf("Classifier failed with error: %d\n", classifierError);
-    return;
-  }
+      Serial.println("You set interface to: " + choice);
+      interfaceChosen = true;
 
-  int predictionIndex = 0;
-  float predictionValue = 0;
-  float tempPrediciton = 0;
+      if ( bleEnabled ) {
+        ble.begin();
+        prevTimeHolder = millis();
+      } else {
+        usb.begin();
+      }
+    }
+  } else if ( interfaceChosen ) {
+    inferenceLabel label = GetLabel();
 
-  ei_printf("Classifier results (DSP: %d ms, Classification: %d ms, Anomaly: %d, ms)\n", result.timing.dsp, result.timing.classification, result.timing.anomaly);
-  for ( size_t i = 0; i < EI_CLASSIFIER_LABEL_COUNT; i++ ) {
-    tempPrediciton = result.classification[i].value;
-
-    ei_printf("\t%s: ", result.classification[i].label);
-    ei_printf_float(tempPrediciton);
-    ei_printf("\n");
-
-    if ( tempPrediciton > predictionValue ) {
-      predictionIndex = i;
-      predictionValue = tempPrediciton;
+    if ( bleEnabled && ble.isConnected() ) {
+      command(label, ble);
+      prevTimeHolder = millis(); //Update the BLE reset timer everytime we confirm a connection
+    } else if ( !bleEnabled ) {
+      command(label, usb);
+    }
+    else if ( bleEnabled && !ble.isConnected() )
+    {
+      //If we haven't got a ble connection for 30 seconds, then turn BLE off and reset
+      if ( TimeSince(prevTimeHolder) >= 30000 ) {
+        Serial.println("No BLE connection after 30 seconds, returning to interface selection");
+        ble.end();
+        interfaceChosen = false;
+      }
     }
   }
 
-  if ( predictionIndex == 3 ) {
-    digitalWrite(USER_LED, LOW);
-  } else if ( predictionIndex == 8 ) {
-    digitalWrite(USER_LED, HIGH);
-  }
-
-  // if ( !interfaceChosen )
-  // {
-  //   if ( TimeSince(prevTimeHolder) >= 1000 )
-  //   {
-  //     Serial.println("Enable Bluetooth? [y/n]");
-  //     prevTimeHolder = millis();
-  //   }
-
-  //   //Only read from serial if there is actually something in the buffer to read
-  //   if ( Serial.available() > 0 )
-  //   {
-  //     uint8_t choice = Serial.read(); //This overload of serial read gets a single byte
-  //     bleEnabled = choice == 'y' ? true : false;
-
-  //     Serial.println("You set interface to: " + choice);
-  //     interfaceChosen = true;
-
-  //     if ( bleEnabled )
-  //     {
-  //       ble.begin();
-  //       prevTimeHolder = millis();
-  //     }
-  //     else
-  //     {
-  //       usb.begin();
-  //     }
-  //   }
-  // }
-  // else if ( interfaceChosen )
-  // {
-  //   if ( count > 5 ) 
-  //   {
-  //     count = 1;
-  //   }
-
-  //   if ( bleEnabled && ble.isConnected() )
-  //   {
-  //     command(count, ble);
-  //     prevTimeHolder = millis(); //Update the BLE reset timer everytime we confirm a connection
-  //   }
-  //   else if ( !bleEnabled )
-  //   {
-  //     command(count, usb);
-  //   }
-  //   else if ( bleEnabled && !ble.isConnected() )
-  //   {
-  //     //If we haven't got a ble connection for 30 seconds, then turn BLE off and reset
-  //     if ( TimeSince(prevTimeHolder) >= 30000 )
-  //     {
-  //       Serial.println("No BLE connection after 30 seconds, returning to interface selection");
-  //       ble.end();
-  //       interfaceChosen = false;
-  //     }
-  //   }
-
-  //   count++;
-  // }
-
-  // Serial.println("Done.");
-  // delay(5000);
+  delay(1000);
 }
 
 unsigned long TimeSince(unsigned long start) {
@@ -206,6 +150,44 @@ void command(inferenceLabel cmd, T& input) {
       Serial.println("[CMD] Err invalid option.");
       break;
   }
+}
+
+inferenceLabel GetLabel() {
+    while ( !inference.buf_ready ) {
+    delay(10);
+  }
+  inference.buf_ready = false;
+
+  signal_t signal;
+  signal.total_length = EI_CLASSIFIER_RAW_SAMPLE_COUNT;
+  signal.get_data = &GetAudioData;
+  ei_impulse_result_t result = {0};
+
+  EI_IMPULSE_ERROR classifierError = run_classifier(&signal, &result, false);
+  if ( classifierError != EI_IMPULSE_OK ) {
+    ei_printf("Classifier failed with error: %d\n", classifierError);
+    return NONE;
+  }
+
+  int predictionIndex = 0;
+  float predictionValue = 0;
+  float tempPrediciton = 0;
+
+  ei_printf("Classifier results (DSP: %d ms, Classification: %d ms, Anomaly: %d, ms)\n", result.timing.dsp, result.timing.classification, result.timing.anomaly);
+  for ( size_t i = 0; i < EI_CLASSIFIER_LABEL_COUNT; i++ ) {
+    tempPrediciton = result.classification[i].value;
+
+    ei_printf("\t%s: ", result.classification[i].label);
+    ei_printf_float(tempPrediciton);
+    ei_printf("\n");
+
+    if ( tempPrediciton > predictionValue ) {
+      predictionIndex = i;
+      predictionValue = tempPrediciton;
+    }
+  }
+
+  return (inferenceLabel)predictionIndex;
 }
 
 //Below code is mostly from the KWS lab from class, modified a bit to make it read better
