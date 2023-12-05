@@ -7,20 +7,25 @@
 
 #define SAMPLE_RATE 16000U
 #define SAMPLE_BITS 16
+#define SAMPLE_BUF_SIZE 2048U
 #define USER_LED 21
 
 typedef struct {
   uint32_t n_samples;
   uint32_t buf_count;
-  uint16_t* buffer;
+  int16_t* buffer;
   uint8_t buf_ready;
 } inference_t;
 
-uint8_t count = 0;
-bool bleEnabled = false;
-bool interfaceChosen = false;
+static inference_t inference;
+static int16_t sampleBuffer[SAMPLE_BUF_SIZE];
+static bool isRecording = false;
 
-unsigned long prevTimeHolder = 0;
+static bool bleEnabled = false;
+static bool interfaceChosen = false;
+
+static uint8_t count = 0;
+static unsigned long prevTimeHolder = 0;
 
 USBHIDKeyboard usb;
 BleKeyboard ble;
@@ -30,82 +35,133 @@ unsigned long TimeSince(unsigned long start);
 template <typename T>
 void command(int cmd, T& input);
 
+void SampleCallback(uint32_t nBytes);
+void RecordSample(void* arg);
+bool BeginSampling(uint32_t nSamples);
+
+int GetAudioData(size_t offset, size_t length, float* out_ptr);
+
 void setup() {
   Serial.begin(115200);
   while(!Serial);
 
   pinMode(USER_LED, OUTPUT);
-  digitalWrite(USER_LED, HIGH);
+  digitalWrite(USER_LED, LOW);
 
   I2S.setAllPins(-1, 42, 41, -1, -1);
   if ( !I2S.begin(PDM_MONO_MODE, SAMPLE_RATE, SAMPLE_BITS) )
   {
     Serial.println("I2S failed to init!");
-    while(1);
+    return;
+  }
+
+  if ( !BeginSampling(EI_CLASSIFIER_RAW_SAMPLE_COUNT) ) {
+    ei_printf("Failed to allocate sampling buffer\n");
+    return;
   }
 }
 
 void loop() {
-  if ( !interfaceChosen )
-  {
-    if ( TimeSince(prevTimeHolder) >= 1000 )
-    {
-      Serial.println("Enable Bluetooth? [y/n]");
-      prevTimeHolder = millis();
-    }
-
-    //Only read from serial if there is actually something in the buffer to read
-    if ( Serial.available() > 0 )
-    {
-      uint8_t choice = Serial.read(); //This overload of serial read gets a single byte
-      bleEnabled = choice == 'y' ? true : false;
-
-      Serial.println("You set interface to: " + choice);
-      interfaceChosen = true;
-
-      if ( bleEnabled )
-      {
-        ble.begin();
-        prevTimeHolder = millis();
-      }
-      else
-      {
-        usb.begin();
-      }
-    }
+  while ( !inference.buf_ready ) {
+    delay(10);
   }
-  else if ( interfaceChosen )
-  {
-    if ( count > 5 ) 
-    {
-      count = 1;
-    }
+  inference.buf_ready = false;
 
-    if ( bleEnabled && ble.isConnected() )
-    {
-      command(count, ble);
-      prevTimeHolder = millis(); //Update the BLE reset timer everytime we confirm a connection
-    }
-    else if ( !bleEnabled )
-    {
-      command(count, usb);
-    }
-    else if ( bleEnabled && !ble.isConnected() )
-    {
-      //If we haven't got a ble connection for 30 seconds, then turn BLE off and reset
-      if ( TimeSince(prevTimeHolder) >= 30000 )
-      {
-        Serial.println("No BLE connection after 30 seconds, returning to interface selection");
-        ble.end();
-        interfaceChosen = false;
-      }
-    }
+  signal_t signal;
+  signal.total_length = EI_CLASSIFIER_RAW_SAMPLE_COUNT;
+  signal.get_data = &GetAudioData;
+  ei_impulse_result_t result = {0};
 
-    count++;
+  EI_IMPULSE_ERROR classifierError = run_classifier(&signal, &result, false);
+  if ( classifierError != EI_IMPULSE_OK ) {
+    ei_printf("Classifier failed with error: %d\n", classifierError);
+    return;
   }
 
-  Serial.println("Done.");
-  delay(5000);
+  int predictionIndex = 0;
+  float predictionValue = 0;
+  float tempPrediciton = 0;
+
+  ei_printf("Classifier results (DSP: %d ms, Classification: %d ms, Anomaly: %d, ms)\n", result.timing.dsp, result.timing.classification, result.timing.anomaly);
+  for ( size_t i = 0; i < EI_CLASSIFIER_LABEL_COUNT; i++ ) {
+    tempPrediciton = result.classification[i].value;
+
+    ei_printf("\t%s: ", result.classification[i].label);
+    ei_printf_float(tempPrediciton);
+    ei_printf("\n");
+
+    if ( tempPrediciton > predictionValue ) {
+      predictionIndex = i;
+      predictionValue = tempPrediciton;
+    }
+  }
+
+  if ( predictionIndex == 3 ) {
+    digitalWrite(USER_LED, LOW);
+  } else if ( predictionIndex == 8 ) {
+    digitalWrite(USER_LED, HIGH);
+  }
+
+  // if ( !interfaceChosen )
+  // {
+  //   if ( TimeSince(prevTimeHolder) >= 1000 )
+  //   {
+  //     Serial.println("Enable Bluetooth? [y/n]");
+  //     prevTimeHolder = millis();
+  //   }
+
+  //   //Only read from serial if there is actually something in the buffer to read
+  //   if ( Serial.available() > 0 )
+  //   {
+  //     uint8_t choice = Serial.read(); //This overload of serial read gets a single byte
+  //     bleEnabled = choice == 'y' ? true : false;
+
+  //     Serial.println("You set interface to: " + choice);
+  //     interfaceChosen = true;
+
+  //     if ( bleEnabled )
+  //     {
+  //       ble.begin();
+  //       prevTimeHolder = millis();
+  //     }
+  //     else
+  //     {
+  //       usb.begin();
+  //     }
+  //   }
+  // }
+  // else if ( interfaceChosen )
+  // {
+  //   if ( count > 5 ) 
+  //   {
+  //     count = 1;
+  //   }
+
+  //   if ( bleEnabled && ble.isConnected() )
+  //   {
+  //     command(count, ble);
+  //     prevTimeHolder = millis(); //Update the BLE reset timer everytime we confirm a connection
+  //   }
+  //   else if ( !bleEnabled )
+  //   {
+  //     command(count, usb);
+  //   }
+  //   else if ( bleEnabled && !ble.isConnected() )
+  //   {
+  //     //If we haven't got a ble connection for 30 seconds, then turn BLE off and reset
+  //     if ( TimeSince(prevTimeHolder) >= 30000 )
+  //     {
+  //       Serial.println("No BLE connection after 30 seconds, returning to interface selection");
+  //       ble.end();
+  //       interfaceChosen = false;
+  //     }
+  //   }
+
+  //   count++;
+  // }
+
+  // Serial.println("Done.");
+  // delay(5000);
 }
 
 unsigned long TimeSince(unsigned long start) {
@@ -135,4 +191,77 @@ void command(int cmd, T& input) {
       Serial.println("[CMD] Err invalid option.");
       break;
   }
+}
+
+//Below code is mostly from the KWS lab from class, modified a bit to make it read better
+void SampleCallback(uint32_t nBytes) {
+  for ( int i = 0; i < nBytes; i++ ) {
+    inference.buffer[inference.buf_count++] = sampleBuffer[i];
+
+    if ( inference.buf_count >= inference.n_samples ) {
+      inference.buf_ready = true;
+      inference.buf_count = 0;
+    }
+  }
+}
+
+void RecordSample(void* arg) {
+  const size_t i2sBytesToRead = (size_t)arg;
+  size_t bytesRead = 0;
+
+  while ( isRecording ) {
+    esp_i2s::i2s_read(esp_i2s::I2S_NUM_0, (void*)sampleBuffer, i2sBytesToRead, &bytesRead, 200);
+
+    if ( bytesRead <= 0 ) {
+      ei_printf("Bad I2S read: %d bytes\n", bytesRead);
+    } else {
+      if ( bytesRead < i2sBytesToRead ) {
+        printf("Only got %d bytes from I2S\n", bytesRead);
+      }
+
+      //bytesRead/2 because sampleBuffer is 16 bit ints
+      for ( int i = 0; i < bytesRead/2; i++ ) {
+        sampleBuffer[i] = sampleBuffer[i] * 8;
+      }
+
+      if ( isRecording ) {
+        SampleCallback(bytesRead/2);
+      } else {
+        break;
+      }
+    }
+  }
+
+  //Passing NULL to this frees the calling task
+  vTaskDelete(NULL);
+}
+
+bool BeginSampling(uint32_t nSamples) {
+  bool isSuccess = true;
+
+  inference.buffer = (int16_t*)malloc(nSamples * sizeof(int16_t));
+
+  //handle malloc error case
+  if ( inference.buffer == NULL ) {
+    isSuccess = false;
+  } else {
+    inference.buf_count = 0;
+    inference.buf_ready = false;
+    inference.n_samples = nSamples;
+
+    ei_sleep(100);
+
+    isRecording = true;
+
+    //Create RTOS audio sampling task
+    xTaskCreate(RecordSample, "RecordSample", 1024 * 32, (void*)SAMPLE_BUF_SIZE, 10, NULL);
+  }
+
+  return isSuccess;
+}
+
+int GetAudioData(size_t offset, size_t length, float* out_ptr) {
+  numpy::int16_to_float(&inference.buffer[offset], out_ptr, length);
+
+  return 0;
 }
