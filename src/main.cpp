@@ -17,6 +17,21 @@ typedef struct {
   uint8_t buf_ready;
 } inference_t;
 
+typedef enum {
+  BACKWARD,
+  DOWN,
+  FOWARD,
+  GO,
+  LEFT,
+  OFF,
+  ON,
+  RIGHT,
+  STOP,
+  UP,
+
+  NONE
+} inferenceLabel;
+
 static inference_t inference;
 static int16_t sampleBuffer[SAMPLE_BUF_SIZE];
 static bool isRecording = false;
@@ -33,7 +48,7 @@ BleKeyboard ble;
 unsigned long TimeSince(unsigned long start);
 
 template <typename T>
-void command(int cmd, T& input);
+void command(inferenceLabel cmd, T& input);
 
 void SampleCallback(uint32_t nBytes);
 void RecordSample(void* arg);
@@ -169,21 +184,21 @@ unsigned long TimeSince(unsigned long start) {
 }
 
 template <typename T>
-void command(int cmd, T& input) {
+void command(inferenceLabel cmd, T& input) {
   switch (cmd) {
-    case 1:
+    case GO:
       Serial.println("[CMD] F5");
       input.write(KEY_F5);
       break;
-    case 2:
+    case RIGHT:
       Serial.println("[CMD] Right Arrow");
       input.write(KEY_RIGHT_ARROW);
       break;
-    case 3:
+    case LEFT:
       Serial.println("[CMD] Left Arrow");
       input.write(KEY_LEFT_ARROW);
       break;
-    case 4:
+    case STOP:
       Serial.println("[CMD] Esc");
       input.write(KEY_ESC);
       break;
