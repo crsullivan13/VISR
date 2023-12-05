@@ -19,16 +19,4 @@
  * SOFTWARE.
  */
 
-#ifndef EI_TFLITE_MODEL_OPS_DEFINES_H
-#define EI_TFLITE_MODEL_OPS_DEFINES_H
-
-
-
-
-
-
-
-
-
-
-#endif // EI_TFLITE_MODEL_OPS_DEFINES_H
+// Empty on purpose

@@ -18,16 +18,11 @@ typedef struct {
 } inference_t;
 
 typedef enum {
-  BACKWARD,
-  DOWN,
-  FOWARD,
   GO,
   LEFT,
-  OFF,
-  ON,
+  NOISE,
   RIGHT,
   STOP,
-  UP,
 
   NONE
 } inferenceLabel;
@@ -147,7 +142,7 @@ void command(inferenceLabel cmd, T& input) {
       input.write(KEY_ESC);
       break;
      default:
-      Serial.println("[CMD] Err invalid option.");
+      Serial.println("[CMD] Err invalid option (NOISE).");
       break;
   }
 }
@@ -169,7 +164,7 @@ inferenceLabel GetLabel() {
     return NONE;
   }
 
-  int predictionIndex = 0;
+  int predictionIndex = NONE;
   float predictionValue = 0;
   float tempPrediciton = 0;
 
