@@ -29,7 +29,7 @@
 #include "edge-impulse-sdk/classifier/ei_model_types.h"
 #include "edge-impulse-sdk/classifier/inferencing_engines/engines.h"
 
-const char* ei_classifier_inferencing_categories[] = { "go", "left", "noise", "right", "stop" };
+const char* ei_classifier_inferencing_categories[] = { "forward", "go", "left", "noise", "stop" };
 
 uint8_t ei_dsp_config_3_axes[] = { 0 };
 const uint32_t ei_dsp_config_3_axes_size = 1;
@@ -97,11 +97,11 @@ const ei_model_performance_calibration_t ei_calibration = {
     0   /* Don't use flags */
 };
 
-const ei_impulse_t impulse_315048_3 = {
+const ei_impulse_t impulse_315048_6 = {
     .project_id = 315048,
     .project_owner = "hunter",
     .project_name = "VISR: Presentation Controls",
-    .deploy_version = 3,
+    .deploy_version = 6,
 
     .nn_input_frame_size = 650,
     .raw_sample_count = 16000,
@@ -138,6 +138,6 @@ const ei_impulse_t impulse_315048_3 = {
     .categories = ei_classifier_inferencing_categories
 };
 
-const ei_impulse_t ei_default_impulse = impulse_315048_3;
+const ei_impulse_t ei_default_impulse = impulse_315048_6;
 
 #endif // _EI_CLASSIFIER_MODEL_METADATA_H_

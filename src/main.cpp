@@ -18,10 +18,10 @@ typedef struct {
 } inference_t;
 
 typedef enum {
+  FORWARD,
   GO,
   LEFT,
   NOISE,
-  RIGHT,
   STOP,
 
   NONE
@@ -71,31 +71,35 @@ void setup() {
     ei_printf("Failed to allocate sampling buffer\n");
     return;
   }
+
+  ble.begin();
+  bleEnabled = true;
 }
 
 void loop() {
-  if ( !interfaceChosen ) {
-    if ( TimeSince(prevTimeHolder) >= 1000 ) {
-      Serial.println("Enable Bluetooth? [y/n]");
-      prevTimeHolder = millis();
-    }
+  //Commented out code is for selection between USB/BLE interface, omitting for the demo
+  // if ( !interfaceChosen ) {
+  //   if ( TimeSince(prevTimeHolder) >= 1000 ) {
+  //     Serial.println("Enable Bluetooth? [y/n]");
+  //     prevTimeHolder = millis();
+  //   }
 
-    //Only read from serial if there is actually something in the buffer to read
-    if ( Serial.available() > 0 ) {
-      uint8_t choice = Serial.read(); //This overload of serial read gets a single byte
-      bleEnabled = choice == 'y' ? true : false;
+  //   //Only read from serial if there is actually something in the buffer to read
+  //   if ( Serial.available() > 0 ) {
+  //     uint8_t choice = Serial.read(); //This overload of serial read gets a single byte
+  //     bleEnabled = choice == 'y' ? true : false;
 
-      Serial.println("You set interface to: " + choice);
-      interfaceChosen = true;
+  //     Serial.println("You set interface to: " + choice);
+  //     interfaceChosen = true;
 
-      if ( bleEnabled ) {
-        ble.begin();
-        prevTimeHolder = millis();
-      } else {
-        usb.begin();
-      }
-    }
-  } else if ( interfaceChosen ) {
+  //     if ( bleEnabled ) {
+  //       ble.begin();
+  //       prevTimeHolder = millis();
+  //     } else {
+  //       usb.begin();
+  //     }
+  //   }
+  // } else if ( interfaceChosen ) {
     inferenceLabel label = GetLabel();
 
     if ( bleEnabled && ble.isConnected() ) {
@@ -104,18 +108,16 @@ void loop() {
     } else if ( !bleEnabled ) {
       command(label, usb);
     }
-    else if ( bleEnabled && !ble.isConnected() )
-    {
-      //If we haven't got a ble connection for 30 seconds, then turn BLE off and reset
-      if ( TimeSince(prevTimeHolder) >= 30000 ) {
-        Serial.println("No BLE connection after 30 seconds, returning to interface selection");
-        ble.end();
-        interfaceChosen = false;
-      }
-    }
-  }
-
-  delay(1000);
+    // else if ( bleEnabled && !ble.isConnected() )
+    // {
+    //   //If we haven't got a ble connection for 30 seconds, then turn BLE off and reset
+    //   if ( TimeSince(prevTimeHolder) >= 30000 ) {
+    //     Serial.println("No BLE connection after 30 seconds, returning to interface selection");
+    //     ble.end();
+    //     interfaceChosen = false;
+    //   }
+    // }
+  // }
 }
 
 unsigned long TimeSince(unsigned long start) {
@@ -129,7 +131,7 @@ void command(inferenceLabel cmd, T& input) {
       Serial.println("[CMD] F5");
       input.write(KEY_F5);
       break;
-    case RIGHT:
+    case FORWARD:
       Serial.println("[CMD] Right Arrow");
       input.write(KEY_RIGHT_ARROW);
       break;
