@@ -97,11 +97,11 @@ const ei_model_performance_calibration_t ei_calibration = {
     0   /* Don't use flags */
 };
 
-const ei_impulse_t impulse_315048_6 = {
+const ei_impulse_t impulse_315048_13 = {
     .project_id = 315048,
     .project_owner = "hunter",
     .project_name = "VISR: Presentation Controls",
-    .deploy_version = 6,
+    .deploy_version = 13,
 
     .nn_input_frame_size = 650,
     .raw_sample_count = 16000,
@@ -138,6 +138,6 @@ const ei_impulse_t impulse_315048_6 = {
     .categories = ei_classifier_inferencing_categories
 };
 
-const ei_impulse_t ei_default_impulse = impulse_315048_6;
+const ei_impulse_t ei_default_impulse = impulse_315048_13;
 
 #endif // _EI_CLASSIFIER_MODEL_METADATA_H_
