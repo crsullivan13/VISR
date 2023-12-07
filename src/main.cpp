@@ -34,7 +34,7 @@ static bool isRecording = false;
 static bool bleEnabled = false;
 static bool interfaceChosen = false;
 
-static uint8_t count = 0;
+static uint8_t exitCount = 0;
 static unsigned long prevTimeHolder = 0;
 
 USBHIDKeyboard usb;
@@ -104,7 +104,7 @@ void loop() {
 
     if ( bleEnabled && ble.isConnected() ) {
       command(label, ble);
-      prevTimeHolder = millis(); //Update the BLE reset timer everytime we confirm a connection
+      //prevTimeHolder = millis(); //Update the BLE reset timer everytime we confirm a connection
     } else if ( !bleEnabled ) {
       command(label, usb);
     }
@@ -140,8 +140,14 @@ void command(inferenceLabel cmd, T& input) {
       input.write(KEY_LEFT_ARROW);
       break;
     case STOP:
-      Serial.println("[CMD] Esc");
-      input.write(KEY_ESC);
+      exitCount += 1;
+      if ( exitCount == 1 ) {
+        prevTimeHolder = millis();
+      } else if ( TimeSince(prevTimeHolder) > 500 ) {
+        Serial.println("[CMD] Esc");
+        input.write(KEY_ESC);
+        exitCount = 0;
+      }
       break;
      default:
       Serial.println("[CMD] Err invalid option (NOISE).");
@@ -178,7 +184,7 @@ inferenceLabel GetLabel() {
     ei_printf_float(tempPrediciton);
     ei_printf("\n");
 
-    if ( tempPrediciton > predictionValue ) {
+    if ( tempPrediciton > predictionValue && tempPrediciton > .4 ) {
       predictionIndex = i;
       predictionValue = tempPrediciton;
     }
