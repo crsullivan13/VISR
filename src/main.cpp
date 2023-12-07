@@ -141,11 +141,13 @@ void command(inferenceLabel cmd, T& input) {
       break;
     case STOP:
       exitCount += 1;
-      if ( exitCount == 1 ) {
+      if ( exitCount != 0 && exitCount < 2) {
         prevTimeHolder = millis();
-      } else if ( TimeSince(prevTimeHolder) > 500 ) {
+      } else if ( TimeSince(prevTimeHolder) <= 2500 ) {
         Serial.println("[CMD] Esc");
         input.write(KEY_ESC);
+        exitCount = 0;
+      } else {
         exitCount = 0;
       }
       break;
